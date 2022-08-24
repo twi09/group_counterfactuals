@@ -21,11 +21,11 @@ from scipy.spatial import distance_matrix
 import torch.nn as nn
 import sys 
 
-np.random.seed(10)
+np.random.seed(3)
 
 X,y = make_moons(n_samples=10_000,noise=0.08)
-plt.scatter(X[:,0],X[:,1],c=y)
-plt.title("Make moons dataset")
+#plt.scatter(X[:,0],X[:,1],c=y)
+#plt.title("Make moons dataset")
 
 
 # Split 
@@ -105,7 +105,7 @@ def Optimize(G,pred_class,lambda_param,lr,max_iter) :
     lamb = torch.tensor(lambda_param).float()
 
     # Initialize perturbation as random
-    torch.manual_seed(0)
+    torch.manual_seed(4)
     Perturb = Variable(torch.rand(1, X.shape[1]), requires_grad=True)
 
     # Set optimizer 
@@ -127,20 +127,20 @@ def Optimize(G,pred_class,lambda_param,lr,max_iter) :
     
     return(Adapt(final_perturb))
     
-def add_to_cluster_if(X_cluster,list_cluster,i,x,pred_class,lambda_param,lr,max_iter) :
+def add_to_cluster_if(X_cluster,list_cluster,i,x,pred_class,lambda_param,lr,max_iter,perturb) :
     success = False
     list_cluster[i].append(x)
     G = X_cluster[list_cluster[i],:]
     # Run a perturbation
-    perturb = Optimize(G,pred_class,lambda_param,lr,max_iter)
+    new_perturb = Optimize(G,pred_class,lambda_param,lr,max_iter)
     # Prediction for the perturbated group 
-    G_perturbed = model(G + perturb).round().flatten().detach().numpy()
+    G_perturbed = model(G + new_perturb).round().flatten().detach().numpy()
     if np.all(G_perturbed) and G_perturbed[0] == 1-pred_class :
         success=True
+        return(success,list_cluster,new_perturb)
     else : 
         list_cluster[i].remove(x)
-
-    return(success,list_cluster,perturb)
+        return(success,list_cluster,perturb)
 
 def remove_covered_points(list_cluster,i,list_total) : 
     # Remove covered points
@@ -149,6 +149,7 @@ def remove_covered_points(list_cluster,i,list_total) :
     
 def clustering_2(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param) :
     Perturbs = []
+    perturb = torch.zeros((1, X.shape[1])) 
     # Take example with the same predicted class
     X_cluster = X_test[y_pred_test_class==pred_class]
     #X_cluster_init = X_cluster.clone()
@@ -165,12 +166,11 @@ def clustering_2(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param) :
     while (len(list_total)!=0) :
         while sucess and (len(list_total)!=0) :
             print("Current cluster:",i)
-            print("Current number of instances in the cluster:",len(list_cluster[i]))
-            #print("Number of instances that remains:",len(list_total))
+            print("Number of examples in the cluster:",len(list_cluster[i]))
             # Closest point in data
             closest_point_index = np.argsort(Mat[random_point])[1]
             # test to add this point to the cluster
-            sucess,list_cluster,perturb = add_to_cluster_if(X_cluster,list_cluster,i,closest_point_index,pred_class,lambda_param,lr,max_iter)
+            sucess,list_cluster,perturb = add_to_cluster_if(X_cluster,list_cluster,i,closest_point_index,pred_class,lambda_param,lr,max_iter,perturb)
             # remove covered points
             list_total = remove_covered_points(list_cluster,i,list_total)
             # Points in a cluster cant be long covered
@@ -178,18 +178,18 @@ def clustering_2(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param) :
             # new point is the closest one
             random_point = closest_point_index
         
-        # If the formation cluster stop append the perturbation
         Perturbs.append(perturb)
-        # Take a new random point that is not already reach
-        print("Number of instances that remains:",len(list_total))
         if len(list_total)==0:
             continue
+        # Take a new random point that is not already reach
         random_point = np.random.choice(list_total)
         list_cluster.append([random_point])
         # Try a new formation 
         sucess = True
         i+=1
-        #print("New cluster",i)
+        perturb = torch.zeros((1, X.shape[1])) 
+        print("New cluster",i)
+        print("Number of instances that remains:",len(list_total))
     # Create a cluster label vector 
     cluster_label = np.zeros(X_cluster.shape[0])
     for i in range(len(list_cluster)) : 
@@ -218,12 +218,16 @@ def run_clustering(pred_class) :
 run_clustering(sys.argv[1])
 
 
+'''
+pred_class=0
+run_clustering(pred_class)
 
 
-'''cluster_label = np.loadtxt("cluster_label.txt")
+pred_class=0
+cluster_label = np.loadtxt("cluster_label_class={}.txt".format(pred_class))
+perturbs =  np.loadtxt("perturbs_class={}.txt".format(pred_class))
 X_cluster = X_sample[y_pred_sample_class==pred_class]
 plt.figure()
 plt.scatter(X_cluster[:,0],X_cluster[:,1],c=cluster_label)
 
 '''
-
