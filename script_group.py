@@ -135,7 +135,8 @@ def add_to_cluster_if(X_cluster,list_cluster,i,x,pred_class,lambda_param,lr,max_
     new_perturb = Optimize(G,pred_class,lambda_param,lr,max_iter)
     # Prediction for the perturbated group 
     G_perturbed = model(G + new_perturb).round().flatten().detach().numpy()
-    if np.all(G_perturbed) and G_perturbed[0] == 1-pred_class :
+    #print("G_perturbed:",G_perturbed)
+    if (np.unique(G_perturbed).shape[0]==1) and G_perturbed[0] == (1-pred_class) :
         success=True
         return(success,list_cluster,new_perturb)
     else : 
@@ -195,8 +196,8 @@ def clustering_2(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param) :
     for i in range(len(list_cluster)) : 
         for e in list_cluster[i] : 
             cluster_label[e]=i 
-    np.savetxt("perturbs_class={}.txt".format(pred_class),np.vstack(Perturbs))
-    np.savetxt("cluster_label_class={}.txt".format(pred_class),np.vstack(cluster_label))    
+    np.savetxt("perturbs_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(Perturbs))
+    np.savetxt("cluster_label_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(cluster_label))    
     
 
 sample = np.random.choice(X_test.shape[0],200,replace=False)
@@ -204,27 +205,30 @@ X_sample = X_test[sample]
 y_sample = y_test[sample]
 y_pred_sample_class = y_pred_test_class[sample]
 
-lr = 0.01
-max_iter = 1000 
-lambda_param = 1e-5
+
 
 def run_clustering(pred_class) : 
     lr = 0.01
     max_iter = 1000 
-    lambda_param = 1e-5
-    clustering_2(X_test,y_pred_test_class,int(pred_class),lr,max_iter,lambda_param)
+    Lambda = np.linspace(1e-2,1e-4,10)
+    for lambda_param in Lambda :
+        clustering_2(X_sample,y_pred_sample_class,int(pred_class),lr,max_iter,lambda_param)
 
 
 run_clustering(sys.argv[1])
 
 
-
-#run_clustering(pred_class)
 '''
-pred_class=0
-cluster_label = np.loadtxt("cluster_label_class={}.txt".format(pred_class))
-perturbs =  np.loadtxt("perturbs_class={}.txt".format(pred_class))
-X_cluster = X_test[y_pred_test_class==pred_class]
+run_clustering(pred_class)
+'''
+
+'''
+pred_class=1
+
+cluster_label = np.loadtxt("cluster_label_class={}_lambda={}.txt".format(pred_class,str(lambda_param)))
+perturbs =  np.loadtxt("perturbs_class={}_lambda={}.txt".format(pred_class,str(lambda_param)))
+X_cluster = X_sample[y_pred_sample_class==pred_class]
 plt.figure()
 plt.scatter(X_cluster[:,0],X_cluster[:,1],c=cluster_label)
+
 '''
