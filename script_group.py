@@ -212,7 +212,7 @@ def run_clustering(pred_class) :
     max_iter = 1000 
     Lambda = np.linspace(1e-2,1e-4,10)
     for lambda_param in Lambda :
-        clustering_2(X_sample,y_pred_sample_class,int(pred_class),lr,max_iter,lambda_param)
+        clustering_2(X_test,y_pred_test_class,int(pred_class),lr,max_iter,lambda_param)
 
 
 run_clustering(sys.argv[1])
