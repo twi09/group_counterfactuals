@@ -215,19 +215,15 @@ def run_clustering(pred_class) :
     clustering_2(X_test,y_pred_test_class,int(pred_class),lr,max_iter,lambda_param)
 
 
-run_clustering(sys.argv[1])
+#run_clustering(sys.argv[1])
 
 
-'''
-pred_class=0
-run_clustering(pred_class)
 
+#run_clustering(pred_class)
 
 pred_class=0
 cluster_label = np.loadtxt("cluster_label_class={}.txt".format(pred_class))
 perturbs =  np.loadtxt("perturbs_class={}.txt".format(pred_class))
-X_cluster = X_sample[y_pred_sample_class==pred_class]
+X_cluster = X_test[y_pred_test_class==pred_class]
 plt.figure()
 plt.scatter(X_cluster[:,0],X_cluster[:,1],c=cluster_label)
-
-'''
