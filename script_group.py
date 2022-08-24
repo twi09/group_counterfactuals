@@ -206,12 +206,12 @@ y_pred_sample_class = y_pred_test_class[sample]
 
 lr = 0.01
 max_iter = 1000 
-lambda_param = 1e-4
+lambda_param = 1e-5
 
 def run_clustering(pred_class) : 
     lr = 0.01
     max_iter = 1000 
-    lambda_param = 1e-4
+    lambda_param = 1e-5
     clustering_2(X_test,y_pred_test_class,int(pred_class),lr,max_iter,lambda_param)
 
 
