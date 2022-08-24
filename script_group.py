@@ -101,8 +101,8 @@ def Optimize(G,pred_class,lambda_param,lr,max_iter) :
     y_target = torch.zeros(1, G.shape[0]) + (1 - pred_class)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Tensors
-    G_target = torch.tensor(y_target).float().to(device)
-    lamb = torch.tensor(lambda_param).float().to(device)
+    G_target = torch.tensor(y_target).float()
+    lamb = torch.tensor(lambda_param).float()
 
     # Initialize perturbation as random
     torch.manual_seed(0)
