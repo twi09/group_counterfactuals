@@ -196,8 +196,8 @@ def clustering_2(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param) :
     for i in range(len(list_cluster)) : 
         for e in list_cluster[i] : 
             cluster_label[e]=i 
-    np.savetxt("perturbs_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(Perturbs))
-    np.savetxt("cluster_label_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(cluster_label))    
+    np.savetxt("results/perturbs_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(Perturbs))
+    np.savetxt("results/cluster_label_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(cluster_label))    
     
 
 sample = np.random.choice(X_test.shape[0],200,replace=False)
