@@ -104,13 +104,13 @@ def Adapt(final_perturb) :
 
 
 # Find a perturbation delta for a group G assigned to class pred_class
-def Optimize(G,pred_class,lambda_param,lr,max_iter) :
+def Optimize(G,pred_class,G_opp,lambda_param,beta_param,lr,max_iter) :
     y_target = torch.zeros(1, G.shape[0]) + (1 - pred_class)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # Tensors
     G_target = torch.tensor(y_target).float()
     lamb = torch.tensor(lambda_param).float()
-
+    beta = torch.tensor(beta_param).float()
     # Initialize perturbation as random
     torch.manual_seed(4)
     Perturb = Variable(torch.rand(1, X.shape[1]), requires_grad=True)
@@ -125,7 +125,7 @@ def Optimize(G,pred_class,lambda_param,lr,max_iter) :
     it=0
     while it < max_iter :
         optimizer.zero_grad()
-        loss = loss_fn_1(model(G + Perturb).reshape(1,-1),G_target) + lamb* torch.dist(G+Perturb, G, 1)
+        loss = loss_fn_1(model(G + Perturb).reshape(1,-1),G_target) + lamb* torch.dist(G+Perturb, G, 1) + beta * torch.mean(torch.norm((G+Perturb)-G_opp,dim=1))
         loss.backward()
         optimizer.step()
         it += 1
@@ -135,22 +135,31 @@ def Optimize(G,pred_class,lambda_param,lr,max_iter) :
     return(Adapt(final_perturb))
     
 
-def add_to_cluser_if(X_cluster,point,eps,pred_class,lambda_param,lr,max_iter,perturb,indexes) : 
-    success = False
+def add_to_cluser_if(X_cluster,X_other_class,Mat_distance,point,eps,pred_class,lambda_param,beta_param,lr,max_iter,perturb,indexes,list_total) : 
+    sucess = False
     x, y = X_cluster[point]
+    
     #index of available points within radius
     new_indexes = np.where((np.abs(x - X_cluster[:,0]) <= eps) & (np.abs(y - X_cluster[:,1]) <= eps))[0]
-    # Group of points that contains points in radius eps of x 
-    G = X_cluster[indexes]
+    # select only points that are not in an other existing cluster 
+    new_indexes = np.array([e for e in new_indexes if e in list_total])
+    #Group of points that contains points in radius eps of x 
+    G = X_cluster[new_indexes]
+    # Group with KNN on opposit class samples
+    G_opp = X_other_class[np.argmin(Mat_distance[new_indexes],axis=1)]
     # Run a perturbation
-    new_perturb = Optimize(G,pred_class,lambda_param,lr,max_iter)
+    new_perturb = Optimize(G,pred_class,G_opp,lambda_param,beta_param,lr,max_iter)
     # Prediction for the perturbated group 
     G_perturbed = model(G + new_perturb).round().flatten().detach().numpy()
     if (np.unique(G_perturbed).shape[0]==1) and G_perturbed[0] == (1-pred_class) :
-       success=True
-       return(success,new_indexes,new_perturb)
+       sucess=True
+       #print("new_indexes_sucess",new_indexes)
+       # if all point are in the same cluster stop the process 
+       if (len(new_indexes) >= len(list_total)) : 
+           sucess = False
+       return(sucess,new_indexes,new_perturb)
     else :
-       return(success,indexes,perturb)
+        return(sucess,indexes,perturb)
 
 def remove_covered_points(list_cluster,list_total) : 
     # Remove covered points
@@ -158,11 +167,17 @@ def remove_covered_points(list_cluster,list_total) :
     return(list_total)
 
 
-def clustering_eps(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param,eps_max) :
+def clustering_eps(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param,beta_param,eps_max) :
     Perturbs = []
     perturb = torch.zeros((1, X.shape[1])) 
     # Take example with the same predicted class
     X_cluster = X_test[y_pred_test_class==pred_class]
+    # Examples with the opposit predicted class 
+    X_other_class = X_test[y_pred_test_class==(1-pred_class)]
+    
+    # Matrix of distances between each samples of opposit class  
+    Mat_distance = distance_matrix(X_cluster,X_other_class)
+    
     # Take a random point 
     random_point = np.random.choice(X_cluster.shape[0])
     # List of indexes point that are in the same cluster 
@@ -175,16 +190,20 @@ def clustering_eps(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param,
     eps = 1e-1
     while (len(list_total)!=0) :
         while sucess and (len(list_total)!=0) :
-           print("Current cluster:",len(list_cluster))
-           print("Current radius:", eps)
-           print("Number of examples in the cluster:",len(indexes))
-           success,indexes,perturb = add_to_cluser_if(X_cluster,random_point,eps,pred_class,lambda_param,lr,max_iter,perturb,indexes)
+           #print("Current cluster:",len(list_cluster))
+           #print("Current radius:", eps)
+           #print("Number of examples in the cluster:",len(indexes))
+           sucess,indexes,perturb = add_to_cluser_if(X_cluster,X_other_class,Mat_distance,random_point,eps,pred_class,lambda_param,beta_param,lr,max_iter,perturb,indexes,list_total)
+           
            # increase radius
            eps *=2
-           if eps >= eps_max : 
+           if (eps >= eps_max) : 
                sucess = False
                continue 
-       
+           
+        print("Current cluster:",len(list_cluster))
+        print("Current radius:", eps)
+        print("Number of examples in the cluster:",len(indexes))
         list_cluster.append(indexes)
         Perturbs.append(perturb)
         list_total = remove_covered_points(list_cluster,list_total)
@@ -205,31 +224,32 @@ def clustering_eps(X_test,y_pred_test_class,pred_class,lr,max_iter,lambda_param,
     for i in range(len(list_cluster)) : 
         for e in list_cluster[i] : 
             cluster_label[e]=i 
-           
+    np.savetxt("perturbs_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(Perturbs))
+    np.savetxt("cluster_label_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),np.vstack(cluster_label))
     return(np.vstack(Perturbs),cluster_label,list_cluster)
 
-
+'''
 sample = np.random.choice(X_test.shape[0],200,replace=False)
 X_sample = X_test[sample]
 y_sample = y_test[sample]
 y_pred_sample_class = y_pred_test_class[sample]
-
+'''
 
 
 lr = 0.01
-max_iter = 1000 
-lambda_param = 1e-5
+max_iter = 500 
+lambda_param = 1e-4
+beta_param = 1e-1
 pred_class = 0 
-eps_max = 0.8
-perturbs,cluster_label,list_cluster =  clustering_eps(X_sample,y_pred_sample_class,int(pred_class),lr,max_iter,lambda_param,eps_max)
+eps_max = 1
+perturbs,cluster_label,list_cluster =  clustering_eps(X_test,y_pred_test_class,int(pred_class),lr,max_iter,lambda_param,beta_param,eps_max)
 
-X_cluster = X_sample[y_pred_sample_class==pred_class]
+X_cluster = X_test[y_pred_test_class==pred_class]
 
 plt.figure()
 plt.scatter(X_cluster[:,0],X_cluster[:,1],c=cluster_label,cmap="plasma")
 
-
-
+#np.savetxt("sample_class={}_lambda={}.txt".format(pred_class,str(lambda_param)),sample)       
 
 
 
