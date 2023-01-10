@@ -58,7 +58,7 @@ model.load_state_dict(torch.load("mlp_toy_model_moons"))
 
 mu = 0
 sigma = 0.01
-repeat_experiment = 2 
+repeat_experiment = 1000 
 
 # Compute counterfactuals with Wachter 
 C = compute_counterfactuals_wachter(model,X_test_t)
@@ -82,7 +82,7 @@ percentage_number = 1.0
 
 Noisy_recourse = []
 Noisy_input = []
-for eps in [0.01,0.02] : 
+for eps in np.linspace(0.01,0.2,10) : 
     C_optimal = compute_optimal_wachter(model,X_test_t,C,eps,lr,max_iter,percentage_number)
     print("Compute wachter optimal counterfactuals sucess for eps={}".format(eps))
     # Compute noise prescribed recourse for Wachter optim 
