@@ -40,7 +40,7 @@ def Adapt(final_perturb) :
 # Find a perturbation delta for a group G assigned to class pred_class
 def Optimize(model,G,pred_class,delta,lr,max_iter,percentage_number,lambda_param=0.01,t_max_min=0.5) :
     y_target = torch.zeros(1, G.shape[0]) + 1
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     # Tensors
     G_target = torch.tensor(y_target).float()
     lamb = torch.tensor(lambda_param).float()

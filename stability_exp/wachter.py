@@ -62,7 +62,7 @@ def wachter_recourse(
     -------
     Counterfactual example as np.ndarray
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     # returns counterfactual instance
     torch.manual_seed(0)
 
